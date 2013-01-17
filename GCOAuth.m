@@ -29,13 +29,20 @@
  those of the authors and should not be interpreted as representing official
  policies, either expressed or implied, of TweetDeck Inc.
  
+ Edited by Zack
+ - Changed the NSData category call of method base64EncodedString to 
+ a non-category call of method base64EncodedStringFromData: from the class
+ NSDataToBase64
+ - Needed to do this as NSData+Base64 wasn't working with pods. It could not
+ find the additional method base64EncodedString
+ - Also made this Arc compatible
  */
 
 #import "GCOAuth.h"
 
 #import <CommonCrypto/CommonHMAC.h>
 
-#import "NSData+Base64.h"
+#import "NSDataToBase64.h"
 
 // static variables
 static NSString *GCOAuthUserAgent = nil;
@@ -91,14 +98,14 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     self = [super init];
     if (self) {
         OAuthParameters = [[NSDictionary alloc] initWithObjectsAndKeys:
-                           [[consumerKey copy] autorelease], @"oauth_consumer_key",
+                           [consumerKey copy], @"oauth_consumer_key",
                            [GCOAuth nonce], @"oauth_nonce",
                            [GCOAuth timeStamp], @"oauth_timestamp",
                            @"1.0",  @"oauth_version",
                            @"HMAC-SHA1", @"oauth_signature_method",
-                           [[accessToken copy] autorelease], @"oauth_token", // leave accessToken last or you'll break XAuth attempts
+                           [accessToken copy], @"oauth_token", // leave accessToken last or you'll break XAuth attempts
                            nil];
-        signatureSecret = [[NSString stringWithFormat:@"%@&%@", [consumerSecret pcen], [tokenSecret ?: @"" pcen]] retain];
+        signatureSecret = [NSString stringWithFormat:@"%@&%@", [consumerSecret pcen], [tokenSecret ?: @"" pcen]];
     }
     return self;
 }
@@ -124,7 +131,6 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
         NSString *entry = [NSString stringWithFormat:@"%@=\"%@\"", [key pcen], [obj pcen]];
         [entries addObject:entry];
     }];
-    [dictionary release];
     return [@"OAuth " stringByAppendingString:[entries componentsJoinedByString:@","]];
 }
 - (NSString *)signature {
@@ -142,7 +148,8 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     
     // base 64
     NSData *data = [NSData dataWithBytes:digest length:CC_SHA1_DIGEST_LENGTH];
-    return [data base64EncodedString];
+    NSDataToBase64 *dataToBase64 = [[NSDataToBase64 alloc] init];
+    return [dataToBase64 base64EncodedStringFromData:data];
     
 }
 - (NSString *)signatureBase {
@@ -162,10 +169,10 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     
     // construct request url
     NSURL *URL = self.URL;
-
+    
 	// Use CFURLCopyPath so that the path is preserved with trailing slash, then escape the percents ourselves
     NSString *pathWithPrevervedTrailingSlash = [CFBridgingRelease(CFURLCopyPath((CFURLRef)URL)) stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-
+    
     NSString *URLString = [NSString stringWithFormat:@"%@://%@%@",
                            [[URL scheme] lowercaseString],
                            [[URL hostAndPort] lowercaseString],
@@ -186,16 +193,12 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     self.URL = nil;
     self.HTTPMethod = nil;
     self.requestParameters = nil;
-    [OAuthParameters release];
     OAuthParameters = nil;
-    [signatureSecret release];
     signatureSecret = nil;
-    [super dealloc];
 }
 
 #pragma mark - class methods
 + (void)setUserAgent:(NSString *)agent {
-    [GCOAuthUserAgent release];
     GCOAuthUserAgent = [agent copy];
 }
 + (void)setTimeStampOffset:(time_t)offset {
@@ -208,7 +211,7 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     CFUUIDRef uuid = CFUUIDCreate(NULL);
     CFStringRef string = CFUUIDCreateString(NULL, uuid);
     CFRelease(uuid);
-    return [(NSString *)string autorelease];
+    return ((__bridge NSString *)string);
 }
 + (NSString *)timeStamp {
     time_t t;
@@ -267,7 +270,6 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     }
     
     // return
-    [oauth release];
     return request;
 }
 + (NSURLRequest *)URLRequestForPath:(NSString *)path
@@ -277,13 +279,13 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                      consumerSecret:(NSString *)consumerSecret
                         accessToken:(NSString *)accessToken
                         tokenSecret:(NSString *)tokenSecret {
-    return [self URLRequestForPath:path HTTPMethod:@"GET" 
-                        parameters:parameters 
-                            scheme:@"http" 
-                              host:host 
-                       consumerKey:consumerKey 
-                    consumerSecret:consumerSecret 
-                       accessToken:accessToken 
+    return [self URLRequestForPath:path HTTPMethod:@"GET"
+                        parameters:parameters
+                            scheme:@"http"
+                              host:host
+                       consumerKey:consumerKey
+                    consumerSecret:consumerSecret
+                       accessToken:accessToken
                        tokenSecret:tokenSecret];
 }
 + (NSURLRequest *)URLRequestForPath:(NSString *)path
@@ -295,14 +297,14 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                         accessToken:(NSString *)accessToken
                         tokenSecret:(NSString *)tokenSecret {
     
-    return [self URLRequestForPath:path 
-                        HTTPMethod:@"GET" 
-                        parameters:parameters 
-                            scheme:scheme 
-                              host:host 
-                       consumerKey:consumerKey 
-                    consumerSecret:consumerSecret 
-                       accessToken:accessToken 
+    return [self URLRequestForPath:path
+                        HTTPMethod:@"GET"
+                        parameters:parameters
+                            scheme:scheme
+                              host:host
+                       consumerKey:consumerKey
+                    consumerSecret:consumerSecret
+                       accessToken:accessToken
                        tokenSecret:tokenSecret];
 }
 + (NSURLRequest *)URLRequestForPath:(NSString *)path
@@ -348,14 +350,14 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                         accessToken:(NSString *)accessToken
                         tokenSecret:(NSString *)tokenSecret
 {
-    return [self URLRequestForPath:path 
-                        HTTPMethod:@"POST" 
-                        parameters:parameters 
-                            scheme:@"https" 
-                              host:host 
-                       consumerKey:consumerKey 
-                    consumerSecret:consumerSecret 
-                       accessToken:accessToken 
+    return [self URLRequestForPath:path
+                        HTTPMethod:@"POST"
+                        parameters:parameters
+                            scheme:@"https"
+                              host:host
+                       consumerKey:consumerKey
+                    consumerSecret:consumerSecret
+                       accessToken:accessToken
                        tokenSecret:tokenSecret];
 }
 + (NSURLRequest *)URLRequestForPath:(NSString *)path
@@ -367,14 +369,14 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                         accessToken:(NSString *)accessToken
                         tokenSecret:(NSString *)tokenSecret {
     
-    return [self URLRequestForPath:path 
-                        HTTPMethod:@"POST" 
-                        parameters:parameters 
-                            scheme:scheme 
-                              host:host 
-                       consumerKey:consumerKey 
-                    consumerSecret:consumerSecret 
-                       accessToken:accessToken 
+    return [self URLRequestForPath:path
+                        HTTPMethod:@"POST"
+                        parameters:parameters
+                            scheme:scheme
+                              host:host
+                       consumerKey:consumerKey
+                    consumerSecret:consumerSecret
+                       accessToken:accessToken
                        tokenSecret:tokenSecret];
     
 }
@@ -398,6 +400,6 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                                                                  NULL,
                                                                  CFSTR("!*'();:@&=+$,/?%#[]"),
                                                                  kCFStringEncodingUTF8);
-    return [(NSString *)string autorelease];
+    return ((__bridge NSString *)string);
 }
 @end
